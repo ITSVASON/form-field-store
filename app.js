@@ -7,12 +7,59 @@ const products = [
   { id: "weekday-shirt", name: "The Workday Shirt", detail: "Crisp cotton · A sharper everyday", price: 68, category: "Wear", badge: "", image: "https://images.unsplash.com/photo-1598033129183-c4f50c736f10?auto=format&fit=crop&w=800&q=80" }
 ];
 
-const cart = new Map();
+const cartStorageKey = "form-field-cart";
+const cartProductIds = new Set(products.map(product => product.id));
+const cart = loadCart();
 const grid = document.querySelector("#product-grid");
 const filter = document.querySelector("#category-filter");
 const drawer = document.querySelector("#cart-drawer");
 const toast = document.querySelector("#toast");
 let toastTimer;
+
+function loadCart() {
+  let savedCart;
+  try {
+    const storedCart = localStorage.getItem(cartStorageKey);
+    if (storedCart === null) return new Map();
+    savedCart = JSON.parse(storedCart);
+  } catch (error) {
+    console.warn("The saved shopping bag could not be read. Starting with an empty bag.", error);
+    try {
+      localStorage.removeItem(cartStorageKey);
+    } catch (clearError) {
+      console.error("The unreadable saved shopping bag could not be cleared.", clearError);
+    }
+    return new Map();
+  }
+
+  const isValidCart = Array.isArray(savedCart) && savedCart.every(entry =>
+    Array.isArray(entry) &&
+    entry.length === 2 &&
+    cartProductIds.has(entry[0]) &&
+    Number.isSafeInteger(entry[1]) &&
+    entry[1] > 0
+  );
+
+  if (!isValidCart) {
+    console.warn("The saved shopping bag is invalid. Starting with an empty bag.");
+    try {
+      localStorage.removeItem(cartStorageKey);
+    } catch (error) {
+      console.error("The invalid saved shopping bag could not be cleared.", error);
+    }
+    return new Map();
+  }
+
+  return new Map(savedCart);
+}
+
+function saveCart() {
+  try {
+    localStorage.setItem(cartStorageKey, JSON.stringify([...cart]));
+  } catch (error) {
+    console.error("The shopping bag could not be saved.", error);
+  }
+}
 
 function renderProducts() {
   const category = filter.value;
@@ -72,6 +119,7 @@ grid.addEventListener("click", event => {
   if (!button) return;
   const id = button.dataset.add;
   cart.set(id, (cart.get(id) || 0) + 1);
+  saveCart();
   renderCart();
   showToast(`${products.find(product => product.id === id).name} added to your bag`);
 });
@@ -84,10 +132,12 @@ document.querySelector("#cart-items").addEventListener("click", event => {
     const quantity = (cart.get(id) || 0) + Number(quantityButton.dataset.change);
     if (quantity < 1) cart.delete(id);
     else cart.set(id, quantity);
+    saveCart();
     renderCart();
   }
   if (removeButton) {
     cart.delete(removeButton.dataset.remove);
+    saveCart();
     renderCart();
   }
 });
