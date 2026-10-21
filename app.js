@@ -10,14 +10,22 @@ const products = [
 const cart = new Map();
 const grid = document.querySelector("#product-grid");
 const filter = document.querySelector("#category-filter");
+const search = document.querySelector("#product-search");
+const clearSearch = document.querySelector("#clear-search");
 const drawer = document.querySelector("#cart-drawer");
 const toast = document.querySelector("#toast");
 let toastTimer;
 
 function renderProducts() {
   const category = filter.value;
-  const visibleProducts = products.filter(product => category === "All" || product.category === category);
+  const query = search.value.trim().toLowerCase();
+  const visibleProducts = products.filter(product =>
+    (category === "All" || product.category === category) &&
+    (product.name.toLowerCase().includes(query) || product.detail.toLowerCase().includes(query))
+  );
   document.querySelector("#product-count").textContent = `Showing ${visibleProducts.length} ${visibleProducts.length === 1 ? "piece" : "pieces"}`;
+  document.querySelector("#empty-results").hidden = visibleProducts.length > 0;
+  clearSearch.hidden = query.length === 0;
   grid.innerHTML = visibleProducts.map(product => `
     <article class="product-card">
       <div class="product-image-wrap">
@@ -93,6 +101,18 @@ document.querySelector("#cart-items").addEventListener("click", event => {
 });
 
 filter.addEventListener("change", renderProducts);
+search.addEventListener("input", renderProducts);
+clearSearch.addEventListener("keydown", event => {
+  if (event.key === "Enter" || event.key === " ") {
+    event.preventDefault();
+    clearSearch.click();
+  }
+});
+clearSearch.addEventListener("click", () => {
+  search.value = "";
+  search.focus();
+  renderProducts();
+});
 document.querySelectorAll("[data-category-link]").forEach(link => {
   link.addEventListener("click", () => {
     filter.value = link.dataset.categoryLink;
